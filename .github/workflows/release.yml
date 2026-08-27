@@ -1,4 +1,4 @@
-name: 'Release Build & Auto-Updater'
+name: 'Release Build'
 
 on:
   push:
@@ -7,17 +7,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
+  build-and-release:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'windows-latest'
-            args: ''
+    runs-on: windows-latest
 
-    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,6 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -33,14 +28,24 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Web Frontend
+        run: npm run build
+
+      - name: Build Tauri Desktop (.exe)
+        run: npx tauri build --bundles nsis
+
+      - name: Upload Installer to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          name: NexFlow ERP ${{ github.ref_name || 'v1.0.3' }}
+          body: |
+            ## 🚀 NexFlow ERP - Instalador Windows
+            
+            Sistema comercial completo, leve e offline-first para Windows 10/11.
+            
+            - **Instalador Oficial:** Baixe o arquivo `.exe` abaixo para instalar no computador.
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name || 'v1.0.2' }}
-          releaseName: 'NexFlow ERP ${{ github.ref_name || "v1.0.2" }}'
-          releaseBody: 'Instalador oficial do NexFlow ERP para Windows.'
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
