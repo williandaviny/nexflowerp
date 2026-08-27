@@ -37,4 +37,3 @@ jobs:
           releaseBody: 'Instalador oficial do NexFlow ERP (.exe) para Windows 10/11.'
           releaseDraft: false
           prerelease: false
-          args: '--bundles nsis'
