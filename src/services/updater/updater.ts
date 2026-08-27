@@ -1,0 +1,78 @@
+export interface UpdateInfo {
+  hasUpdate: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  body?: string;
+  downloadUrl?: string;
+  publishedAt?: string;
+}
+
+const CURRENT_VERSION = '1.0.0';
+const GITHUB_REPO = 'williandaviny/nexflowerp';
+
+export class UpdaterService {
+  public static getCurrentVersion(): string {
+    return CURRENT_VERSION;
+  }
+
+  /**
+   * Checa se há nova versão comparando a tag da última release no GitHub
+   */
+  public static async checkForUpdates(): Promise<UpdateInfo> {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+        headers: {
+          Accept: 'application/vnd.github.v3+json'
+        }
+      });
+
+      if (!res.ok) {
+        return {
+          hasUpdate: false,
+          currentVersion: CURRENT_VERSION,
+          latestVersion: CURRENT_VERSION
+        };
+      }
+
+      const data = await res.json();
+      const latestTag = (data.tag_name || '').replace(/^v/, '').trim();
+      const current = CURRENT_VERSION.replace(/^v/, '').trim();
+
+      const hasUpdate = this.compareVersions(latestTag, current) > 0;
+
+      // Busca o executável de download nas assets
+      const exeAsset = data.assets?.find((a: any) =>
+        a.name.endsWith('.exe') || a.name.endsWith('.msi')
+      );
+
+      return {
+        hasUpdate,
+        currentVersion: CURRENT_VERSION,
+        latestVersion: latestTag || CURRENT_VERSION,
+        body: data.body || 'Correções de estabilidade e novas melhorias.',
+        downloadUrl: exeAsset?.browser_download_url || data.html_url,
+        publishedAt: data.published_at
+      };
+    } catch (err) {
+      console.log('Verificação de update offline ou indisponível:', err);
+      return {
+        hasUpdate: false,
+        currentVersion: CURRENT_VERSION,
+        latestVersion: CURRENT_VERSION
+      };
+    }
+  }
+
+  private static compareVersions(v1: string, v2: string): number {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+      const p1 = parts1[i] || 0;
+      const p2 = parts2[i] || 0;
+      if (p1 > p2) return 1;
+      if (p1 < p2) return -1;
+    }
+    return 0;
+  }
+}
