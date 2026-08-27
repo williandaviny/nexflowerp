@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Download, X, ExternalLink, CheckCircle } from 'lucide-react';
+import { Sparkles, Download, X, CheckCircle } from 'lucide-react';
 import { UpdaterService, UpdateInfo } from '../../services/updater/updater';
 
 export const UpdateModal: React.FC = () => {
@@ -18,6 +18,12 @@ export const UpdateModal: React.FC = () => {
 
     return () => clearTimeout(timer);
   }, []);
+
+  const handleDownloadClick = () => {
+    const url = updateInfo?.downloadUrl || 'https://github.com/williandaviny/nexflowerp/releases';
+    // Abre no navegador padrão do Windows
+    window.open(url, '_blank');
+  };
 
   if (!modalOpen || !updateInfo) return null;
 
@@ -66,15 +72,14 @@ export const UpdateModal: React.FC = () => {
             Lembrar Depois
           </button>
 
-          <a
-            href={updateInfo.downloadUrl || 'https://github.com/williandaviny/nexflowerp/releases'}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={handleDownloadClick}
             className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center space-x-2 transition shadow-lg shadow-emerald-500/20"
           >
             <Download size={14} />
             <span>Baixar Atualização</span>
-          </a>
+          </button>
         </div>
       </div>
     </div>
