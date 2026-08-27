@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -34,6 +34,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'NexFlow ERP ${{ github.ref_name }}'
-          releaseBody: 'Instalador oficial do NexFlow ERP para Windows 10/11.'
+          releaseBody: 'Instalador oficial do NexFlow ERP (.exe) para Windows 10/11.'
           releaseDraft: false
           prerelease: false
+          args: '--bundles nsis'
