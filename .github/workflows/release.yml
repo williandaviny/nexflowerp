@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   release:
@@ -38,9 +39,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'NexFlow ERP ${{ github.ref_name }}'
-          releaseBody: 'Confira as novidades e melhorias do NexFlow ERP nesta versão.'
+          tagName: ${{ github.ref_name || 'v1.0.0' }}
+          releaseName: 'NexFlow ERP ${{ github.ref_name || "v1.0.0" }}'
+          releaseBody: 'Instalador oficial do NexFlow ERP para Windows.'
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
