@@ -26,14 +26,6 @@
       "csp": null
     }
   },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/williandaviny/nexflowerp/releases/latest/download/latest.json"
-      ],
-      "pubkey": ""
-    }
-  },
   "bundle": {
     "active": true,
     "targets": "all",
