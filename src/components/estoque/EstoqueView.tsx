@@ -504,6 +504,25 @@ export const EstoqueView: React.FC = () => {
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
+
+                <div className="col-span-2">
+                  <label className="block text-slate-300 font-semibold mb-1">Unidade de Medida</label>
+                  <select
+                    value={formData.unidade_medida}
+                    onChange={e => setFormData({ ...formData, unidade_medida: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-medium focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="UN">UN - Unidade</option>
+                    <option value="KG">KG - Quilograma</option>
+                    <option value="PCT">PCT - Pacote</option>
+                    <option value="CX">CX - Caixa</option>
+                    <option value="LT">LT - Litro</option>
+                    <option value="MT">MT - Metro</option>
+                    <option value="GR">GR - Grama</option>
+                    <option value="PAR">PAR - Par</option>
+                    <option value="FD">FD - Fardo</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex space-x-2 pt-3 border-t border-slate-800">
