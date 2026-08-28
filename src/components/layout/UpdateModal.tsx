@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Download, X, CheckCircle, ExternalLink } from 'lucide-react';
-import { UpdaterService, UpdateInfo } from '../../services/updater/updater';
+import { UpdaterService, UpdateInfo, APP_VERSION } from '../../services/updater/updater';
 
 export const UpdateModal: React.FC = () => {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -23,28 +23,9 @@ export const UpdateModal: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     const targetUrl = updateInfo?.downloadUrl || 'https://github.com/williandaviny/nexflowerp/releases';
-
-    try {
-      // Tenta abrir pelo plugin-opener do Tauri se disponível
-      const tauriOpener = await import('@tauri-apps/plugin-opener').catch(() => null);
-      if (tauriOpener && typeof tauriOpener.openUrl === 'function') {
-        await tauriOpener.openUrl(targetUrl);
-        return;
-      }
-    } catch {
-      // Fallback
-    }
-
-    // Fallback universal: cria link invisível e aciona clique
-    const a = document.createElement('a');
-    a.href = targetUrl;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    window.open(targetUrl, '_blank');
   };
 
   if (!modalOpen || !updateInfo) return null;
@@ -60,7 +41,7 @@ export const UpdateModal: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-slate-100">Nova Atualização Disponível!</h3>
               <p className="text-xs text-slate-400">
-                Versão <strong className="text-emerald-400 font-mono">v{updateInfo.latestVersion}</strong> (Sua versão: v{updateInfo.currentVersion})
+                Versão <strong className="text-emerald-400 font-mono">v{updateInfo.latestVersion}</strong> (Sua versão: v{APP_VERSION})
               </p>
             </div>
           </div>

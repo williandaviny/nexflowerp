@@ -7,12 +7,12 @@ export interface UpdateInfo {
   publishedAt?: string;
 }
 
-const CURRENT_VERSION = '1.0.0';
+export const APP_VERSION = '1.2.0';
 const GITHUB_REPO = 'williandaviny/nexflowerp';
 
 export class UpdaterService {
   public static getCurrentVersion(): string {
-    return CURRENT_VERSION;
+    return APP_VERSION;
   }
 
   /**
@@ -29,14 +29,14 @@ export class UpdaterService {
       if (!res.ok) {
         return {
           hasUpdate: false,
-          currentVersion: CURRENT_VERSION,
-          latestVersion: CURRENT_VERSION
+          currentVersion: APP_VERSION,
+          latestVersion: APP_VERSION
         };
       }
 
       const data = await res.json();
       const latestTag = (data.tag_name || '').replace(/^v/, '').trim();
-      const current = CURRENT_VERSION.replace(/^v/, '').trim();
+      const current = APP_VERSION.replace(/^v/, '').trim();
 
       const hasUpdate = this.compareVersions(latestTag, current) > 0;
 
@@ -47,8 +47,8 @@ export class UpdaterService {
 
       return {
         hasUpdate,
-        currentVersion: CURRENT_VERSION,
-        latestVersion: latestTag || CURRENT_VERSION,
+        currentVersion: APP_VERSION,
+        latestVersion: latestTag || APP_VERSION,
         body: data.body || 'Correções de estabilidade e novas melhorias.',
         downloadUrl: exeAsset?.browser_download_url || data.html_url,
         publishedAt: data.published_at
@@ -57,8 +57,8 @@ export class UpdaterService {
       console.log('Verificação de update offline ou indisponível:', err);
       return {
         hasUpdate: false,
-        currentVersion: CURRENT_VERSION,
-        latestVersion: CURRENT_VERSION
+        currentVersion: APP_VERSION,
+        latestVersion: APP_VERSION
       };
     }
   }
