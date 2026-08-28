@@ -2,12 +2,6 @@ import { EmpresaConfig, Venda } from '../types/database';
 import { formatCurrency, formatDate, formaPagamentoLabel } from './formatters';
 
 export const printReceipt = (venda: Venda, config: EmpresaConfig) => {
-  const win = window.open('', '_blank', 'width=350,height=600');
-  if (!win) {
-    alert('Por favor, permita popups para imprimir o cupom de venda.');
-    return;
-  }
-
   const itensHtml = (venda.itens || [])
     .map(
       (item, idx) => `
@@ -114,19 +108,41 @@ export const printReceipt = (venda: Venda, config: EmpresaConfig) => {
         <div class="divider"></div>
         <div class="footer">
           <div>${config.mensagem_cupom || 'Obrigado pela preferência!'}</div>
-          <div style="margin-top: 4px; font-size: 9px; color: #555;">NexFlow ERP • Sistema Offline & Nuvem</div>
+          <div style="margin-top: 4px; font-size: 9px; color: #555;">NexFlow ERP • Voortz Tecnologia</div>
         </div>
-
-        <script>
-          window.onload = function() {
-            window.print();
-            setTimeout(function() { window.close(); }, 500);
-          };
-        </script>
       </body>
     </html>
   `;
 
-  win.document.write(html);
-  win.document.close();
+  // Cria um iframe invisível para impressão direta sem depender de popups
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document || iframe.contentDocument;
+  if (doc) {
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Erro na impressão:', err);
+      } finally {
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 3000);
+      }
+    }, 250);
+  }
 };

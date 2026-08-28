@@ -1,6 +1,6 @@
 [package]
 name = "nexflow-erp"
-version = "1.3.3"
+version = "1.3.4"
 description = "NexFlow ERP - Sistema de Gestão Comercial e PDV"
 authors = ["Voortz <contato@voortz.com.br>"]
 edition = "2021"

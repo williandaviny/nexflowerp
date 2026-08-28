@@ -7,7 +7,7 @@ export interface UpdateInfo {
   publishedAt?: string;
 }
 
-export const APP_VERSION = '1.3.3';
+export const APP_VERSION = '1.3.4';
 const GITHUB_REPO = 'williandaviny/nexflowerp';
 
 export class UpdaterService {
@@ -49,7 +49,7 @@ export class UpdaterService {
         hasUpdate,
         currentVersion: APP_VERSION,
         latestVersion: latestTag || APP_VERSION,
-        body: data.body || 'Adição da seleção e edição de Unidade de Medida (UN, KG, PCT, CX, etc.) no cadastro de produtos.',
+        body: data.body || 'Impressão direta de cupom térmico (80mm) sem bloqueio de popups e com assinatura Voortz.',
         downloadUrl: exeAsset?.browser_download_url || data.html_url,
         publishedAt: data.published_at
       };
