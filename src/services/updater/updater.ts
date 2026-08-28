@@ -7,7 +7,7 @@ export interface UpdateInfo {
   publishedAt?: string;
 }
 
-export const APP_VERSION = '1.3.5';
+export const APP_VERSION = '1.3.6';
 const GITHUB_REPO = 'williandaviny/nexflowerp';
 
 export class UpdaterService {
@@ -49,7 +49,7 @@ export class UpdaterService {
         hasUpdate,
         currentVersion: APP_VERSION,
         latestVersion: latestTag || APP_VERSION,
-        body: data.body || 'Cadastro de produtos com Leitor/Scanner de Código de Barras e busca automática na base EAN.',
+        body: data.body || 'Atualização 100% invisível em segundo plano sem janela de CMD.',
         downloadUrl: exeAsset?.browser_download_url || data.html_url,
         publishedAt: data.published_at
       };

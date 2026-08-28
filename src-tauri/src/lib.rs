@@ -5,12 +5,19 @@ use std::process::Command;
 use tauri::{AppHandle, Emitter};
 use futures_util::StreamExt;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         Command::new("cmd")
             .args(["/C", "start", "", &url])
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| e.to_string())?;
         Ok(())
@@ -84,7 +91,7 @@ async fn download_and_install_update(app: AppHandle, url: String) -> Result<(), 
 
     let _ = app.emit("update-progress", 100);
 
-    // Cria script de transição que aguarda o encerramento do app antigo, roda a instalação silenciosa e reabre o app novo
+    // Cria script de transição 100% invisível que roda a instalação silenciosa e reabre o app novo
     #[cfg(target_os = "windows")]
     {
         let installer_str = installer_path.to_string_lossy().to_string();
@@ -97,7 +104,7 @@ async fn download_and_install_update(app: AppHandle, url: String) -> Result<(), 
             timeout /t 1 /nobreak > nul\r\n\
             start \"\" \"{exe}\"\r\n\
             del \"{installer}\"\r\n\
-            del \"%~f0\"\r\n",
+            (goto) 2>nul & del \"%~f0\"\r\n",
             installer = installer_str,
             exe = current_exe_str
         );
@@ -107,7 +114,8 @@ async fn download_and_install_update(app: AppHandle, url: String) -> Result<(), 
 
         let script_str = script_path.to_string_lossy().to_string();
         Command::new("cmd")
-            .args(["/C", "start", "", &script_str])
+            .args(["/C", &script_str])
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| e.to_string())?;
 
