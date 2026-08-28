@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDatabase } from '../../context/DatabaseContext';
 import {
-  Package,
   Plus,
   Search,
   Edit2,
   Trash2,
   ArrowUpRight,
-  ArrowDownRight,
   History,
   AlertTriangle,
   X,
-  Check
+  Barcode,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { MovimentacaoEstoque, Produto } from '../../types/database';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -30,6 +32,13 @@ export const EstoqueView: React.FC = () => {
   const [modalAjuste, setModalAjuste] = useState(false);
   const [produtoEditando, setProdutoEditando] = useState<Produto | null>(null);
   const [produtoParaAjuste, setProdutoParaAjuste] = useState<Produto | null>(null);
+
+  // Estados de Leitor de Código de Barras e Busca Online EAN
+  const [buscandoEan, setBuscandoEan] = useState(false);
+  const [eanIdentificado, setEanIdentificado] = useState<string | null>(null);
+
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const nomeInputRef = useRef<HTMLInputElement>(null);
 
   // Form Produto
   const [formData, setFormData] = useState({
@@ -60,11 +69,12 @@ export const EstoqueView: React.FC = () => {
     setMovimentacoes(movs);
   };
 
-  const abrirModalNovo = () => {
+  const abrirModalNovo = (codigoInicial: string = '') => {
     setProdutoEditando(null);
+    setEanIdentificado(null);
     setFormData({
       nome: '',
-      codigo_barras: `789${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+      codigo_barras: codigoInicial,
       descricao: '',
       preco_custo: '0.00',
       preco_venda: '0.00',
@@ -74,10 +84,24 @@ export const EstoqueView: React.FC = () => {
       categoria: 'Geral'
     });
     setModalProduto(true);
+
+    // Se passou um código inicial pelo leitor, tenta consultar automaticamente
+    if (codigoInicial && codigoInicial.length >= 8) {
+      consultarEanOnline(codigoInicial);
+    }
+
+    setTimeout(() => {
+      if (codigoInicial) {
+        nomeInputRef.current?.focus();
+      } else {
+        barcodeInputRef.current?.focus();
+      }
+    }, 150);
   };
 
   const abrirModalEditar = (prod: Produto) => {
     setProdutoEditando(prod);
+    setEanIdentificado(null);
     setFormData({
       nome: prod.nome,
       codigo_barras: prod.codigo_barras,
@@ -86,10 +110,68 @@ export const EstoqueView: React.FC = () => {
       preco_venda: prod.preco_venda.toFixed(2),
       estoque_atual: String(prod.estoque_atual),
       estoque_minimo: String(prod.estoque_minimo),
-      unidade_medida: prod.unidade_medida,
-      categoria: prod.categoria
+      unidade_medida: prod.unidade_medida || 'UN',
+      categoria: prod.categoria || 'Geral'
     });
     setModalProduto(true);
+  };
+
+  const gerarCodigoInterno = () => {
+    const novoCodigo = `789${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    setFormData(prev => ({ ...prev, codigo_barras: novoCodigo }));
+    setEanIdentificado(null);
+    setTimeout(() => nomeInputRef.current?.focus(), 100);
+  };
+
+  /**
+   * Consulta a base pública de código de barras para autopreencher nome e categoria
+   */
+  const consultarEanOnline = async (ean: string) => {
+    const clean = ean.replace(/\D/g, '').trim();
+    if (clean.length < 8) return;
+
+    try {
+      setBuscandoEan(true);
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${clean}.json`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 1 && data.product) {
+          const prod = data.product;
+          const nomeEncontrado = prod.product_name_pt || prod.product_name || '';
+          const marca = prod.brands || '';
+          const nomeFinal = [nomeEncontrado, marca].filter(Boolean).join(' - ');
+          
+          let categoriaEncontrada = 'Geral';
+          if (prod.categories_hierarchy && prod.categories_hierarchy.length > 0) {
+            const catRaw = prod.categories_hierarchy[0].replace(/^[^:]+:/, '').replace(/-/g, ' ');
+            categoriaEncontrada = catRaw.charAt(0).toUpperCase() + catRaw.slice(1);
+          }
+
+          setFormData(prev => ({
+            ...prev,
+            nome: prev.nome || nomeFinal,
+            categoria: prev.categoria === 'Geral' ? (categoriaEncontrada || 'Geral') : prev.categoria
+          }));
+          setEanIdentificado(nomeFinal || 'Produto Identificado');
+          return;
+        }
+      }
+    } catch {
+      // Falha silenciosa se offline
+    } finally {
+      setBuscandoEan(false);
+    }
+  };
+
+  const handleBarcodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const code = formData.codigo_barras.trim();
+      if (code.length >= 8) {
+        consultarEanOnline(code);
+      }
+      nomeInputRef.current?.focus();
+    }
   };
 
   const abrirModalAjuste = (prod: Produto) => {
@@ -111,7 +193,7 @@ export const EstoqueView: React.FC = () => {
       await db.saveProduto({
         id: produtoEditando?.id,
         nome: formData.nome,
-        codigo_barras: formData.codigo_barras,
+        codigo_barras: formData.codigo_barras || `789${Math.floor(1000000000 + Math.random() * 9000000000)}`,
         descricao: formData.descricao,
         preco_custo: Number(formData.preco_custo) || 0,
         preco_venda: Number(formData.preco_venda) || 0,
@@ -169,6 +251,11 @@ export const EstoqueView: React.FC = () => {
     return matchesCat && matchesSearch && matchesEstoqueBaixo;
   });
 
+  const isBuscaCodigoExatoSemResultado =
+    searchTerm.trim().length >= 8 &&
+    /^\d+$/.test(searchTerm.trim()) &&
+    produtosFiltrados.length === 0;
+
   return (
     <div className="flex-1 flex flex-col p-6 overflow-hidden space-y-6">
       {/* Cabeçalho */}
@@ -176,7 +263,7 @@ export const EstoqueView: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-100 tracking-tight">Estoque & Produtos</h1>
           <p className="text-sm text-slate-400">
-            Controle de inventário, custos, preços de venda e movimentações.
+            Controle de inventário, custos, preços de venda e cadastro com leitor de código de barras.
           </p>
         </div>
 
@@ -203,7 +290,7 @@ export const EstoqueView: React.FC = () => {
           </div>
 
           <button
-            onClick={abrirModalNovo}
+            onClick={() => abrirModalNovo('')}
             className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition"
           >
             <Plus size={16} />
@@ -214,16 +301,23 @@ export const EstoqueView: React.FC = () => {
 
       {abaAtiva === 'produtos' ? (
         <>
-          {/* Barra de Filtros */}
+          {/* Barra de Filtros e Leitor */}
           <div className="glass-card p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3">
-            <div className="flex-1 min-w-[240px] relative">
-              <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+            <div className="flex-1 min-w-[280px] relative">
+              <div className="absolute left-3 top-2.5 flex items-center space-x-1.5 text-slate-400">
+                <Barcode size={16} />
+              </div>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar por nome ou código de barras..."
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-emerald-500 focus:outline-none"
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && isBuscaCodigoExatoSemResultado) {
+                    abrirModalNovo(searchTerm.trim());
+                  }
+                }}
+                placeholder="Bipe com o leitor ou busque por nome / código..."
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs focus:border-emerald-500 focus:outline-none"
               />
             </div>
 
@@ -231,7 +325,7 @@ export const EstoqueView: React.FC = () => {
               <select
                 value={categoriaFiltro}
                 onChange={e => setCategoriaFiltro(e.target.value)}
-                className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 focus:outline-none"
+                className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 focus:outline-none"
               >
                 {categorias.map(cat => (
                   <option key={cat} value={cat}>
@@ -242,7 +336,7 @@ export const EstoqueView: React.FC = () => {
 
               <button
                 onClick={() => setSomenteEstoqueBaixo(!somenteEstoqueBaixo)}
-                className={`px-3 py-1.5 rounded-xl border flex items-center space-x-1.5 transition ${
+                className={`px-3 py-2 rounded-xl border flex items-center space-x-1.5 transition ${
                   somenteEstoqueBaixo
                     ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 font-semibold'
                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
@@ -253,6 +347,25 @@ export const EstoqueView: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Atalho Rápido para Cadastrar Produto Bipado Não Encontrado */}
+          {isBuscaCodigoExatoSemResultado && (
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between animate-in fade-in duration-200">
+              <div className="flex items-center space-x-2.5 text-xs text-emerald-300">
+                <Barcode size={18} className="text-emerald-400" />
+                <span>
+                  Código bipado <strong>{searchTerm.trim()}</strong> não cadastrado no sistema.
+                </span>
+              </div>
+              <button
+                onClick={() => abrirModalNovo(searchTerm.trim())}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs shadow-md hover:bg-emerald-400 transition"
+              >
+                <Plus size={14} />
+                <span>Cadastrar Produto Agora</span>
+              </button>
+            </div>
+          )}
 
           {/* Tabela de Produtos */}
           <div className="flex-1 glass-card rounded-2xl overflow-hidden flex flex-col">
@@ -274,7 +387,9 @@ export const EstoqueView: React.FC = () => {
                   {produtosFiltrados.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-10 text-center text-slate-500 italic">
-                        Nenhum produto cadastrado com esses filtros.
+                        {searchTerm
+                          ? 'Nenhum produto localizado com esses termos.'
+                          : 'Nenhum produto cadastrado no catálogo.'}
                       </td>
                     </tr>
                   ) : (
@@ -287,7 +402,12 @@ export const EstoqueView: React.FC = () => {
 
                       return (
                         <tr key={prod.id} className="hover:bg-slate-800/30 transition">
-                          <td className="py-3 px-4 font-mono text-slate-400">{prod.codigo_barras}</td>
+                          <td className="py-3 px-4 font-mono text-slate-400">
+                            <span className="flex items-center space-x-1.5">
+                              <Barcode size={13} className="text-slate-500" />
+                              <span>{prod.codigo_barras}</span>
+                            </span>
+                          </td>
                           <td className="py-3 px-4">
                             <span className="font-semibold text-slate-200 block">{prod.nome}</span>
                             {prod.descricao && (
@@ -316,7 +436,7 @@ export const EstoqueView: React.FC = () => {
                                   : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                               }`}
                             >
-                              {prod.estoque_atual} {prod.unidade_medida}
+                              {prod.estoque_atual} {prod.unidade_medida || 'UN'}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center">
@@ -417,95 +537,118 @@ export const EstoqueView: React.FC = () => {
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-card w-full max-w-lg rounded-3xl p-6 space-y-4 border border-slate-700 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-slate-100">
-                {produtoEditando ? 'Editar Produto' : 'Novo Produto'}
-              </h3>
+              <div className="flex items-center space-x-2">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Barcode size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-100">
+                    {produtoEditando ? 'Editar Produto' : 'Novo Produto'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Bipe a embalagem com o leitor ou digite os dados
+                  </p>
+                </div>
+              </div>
               <button onClick={() => setModalProduto(false)} className="text-slate-400 hover:text-slate-200">
                 <X size={18} />
               </button>
             </div>
 
+            {/* Aviso de Identificação Automática via Base EAN */}
+            {eanIdentificado && (
+              <div className="px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center space-x-2 text-xs text-emerald-300 animate-in fade-in duration-200">
+                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                <span className="truncate">
+                  Identificado online: <strong>{eanIdentificado}</strong>
+                </span>
+              </div>
+            )}
+
             <form onSubmit={handleSalvarProduto} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
+                {/* Código de Barras com Leitor e Gerador */}
+                <div className="col-span-2 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-slate-300 font-semibold">
+                      Código de Barras / EAN
+                    </label>
+                    <button
+                      type="button"
+                      onClick={gerarCodigoInterno}
+                      className="text-[11px] text-emerald-400 hover:text-emerald-300 flex items-center space-x-1 font-medium"
+                      title="Gerar código de barras interno para produto sem código"
+                    >
+                      <Sparkles size={12} />
+                      <span>Gerar Automático</span>
+                    </button>
+                  </div>
+                  <div className="relative flex items-center">
+                    <input
+                      ref={barcodeInputRef}
+                      type="text"
+                      value={formData.codigo_barras}
+                      onChange={e => setFormData({ ...formData, codigo_barras: e.target.value })}
+                      onKeyDown={handleBarcodeKeyDown}
+                      onBlur={() => {
+                        if (formData.codigo_barras.trim().length >= 8 && !formData.nome) {
+                          consultarEanOnline(formData.codigo_barras);
+                        }
+                      }}
+                      placeholder="Bipe a embalagem com o leitor ou digite o código..."
+                      className="w-full pl-9 pr-24 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                    <Barcode size={15} className="absolute left-3 text-slate-400" />
+                    
+                    <button
+                      type="button"
+                      disabled={buscandoEan || !formData.codigo_barras}
+                      onClick={() => consultarEanOnline(formData.codigo_barras)}
+                      className="absolute right-2 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium border border-slate-700 flex items-center space-x-1"
+                    >
+                      {buscandoEan ? (
+                        <>
+                          <Loader2 size={11} className="animate-spin text-emerald-400" />
+                          <span>Buscando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw size={11} className="text-emerald-400" />
+                          <span>Buscar EAN</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Nome do Produto */}
                 <div className="col-span-2">
                   <label className="block text-slate-300 font-semibold mb-1">Nome do Produto *</label>
                   <input
+                    ref={nomeInputRef}
                     type="text"
                     required
                     value={formData.nome}
                     onChange={e => setFormData({ ...formData, nome: e.target.value })}
-                    placeholder="Ex: Coca-Cola 2L, Arroz 5kg, Camiseta Algodão..."
+                    placeholder="Ex: Coca-Cola 2L, Arroz 5kg, Detergente Ypê..."
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Código de Barras / EAN</label>
-                  <input
-                    type="text"
-                    value={formData.codigo_barras}
-                    onChange={e => setFormData({ ...formData, codigo_barras: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
+                {/* Categoria */}
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-slate-300 font-semibold mb-1">Categoria</label>
                   <input
                     type="text"
                     value={formData.categoria}
                     onChange={e => setFormData({ ...formData, categoria: e.target.value })}
-                    placeholder="Ex: Bebidas, Alimentos, Roupas..."
+                    placeholder="Ex: Bebidas, Alimentos, Limpeza..."
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Preço de Custo (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.preco_custo}
-                    onChange={e => setFormData({ ...formData, preco_custo: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Preço de Venda (R$) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={formData.preco_venda}
-                    onChange={e => setFormData({ ...formData, preco_venda: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-mono font-bold focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Estoque Inicial</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.estoque_atual}
-                    onChange={e => setFormData({ ...formData, estoque_atual: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Estoque Mínimo (Alerta)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.estoque_minimo}
-                    onChange={e => setFormData({ ...formData, estoque_minimo: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="col-span-2">
+                {/* Unidade de Medida */}
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-slate-300 font-semibold mb-1">Unidade de Medida</label>
                   <select
                     value={formData.unidade_medida}
@@ -522,6 +665,55 @@ export const EstoqueView: React.FC = () => {
                     <option value="PAR">PAR - Par</option>
                     <option value="FD">FD - Fardo</option>
                   </select>
+                </div>
+
+                {/* Preço de Custo */}
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Preço de Custo (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.preco_custo}
+                    onChange={e => setFormData({ ...formData, preco_custo: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Preço de Venda */}
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Preço de Venda (R$) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.preco_venda}
+                    onChange={e => setFormData({ ...formData, preco_venda: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-mono font-bold focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Estoque Inicial */}
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Estoque Inicial</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.estoque_atual}
+                    onChange={e => setFormData({ ...formData, estoque_atual: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Estoque Mínimo */}
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Estoque Mínimo (Alerta)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.estoque_minimo}
+                    onChange={e => setFormData({ ...formData, estoque_minimo: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
+                  />
                 </div>
               </div>
 
