@@ -23,9 +23,17 @@ export const UpdateModal: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const targetUrl = updateInfo?.downloadUrl || 'https://github.com/williandaviny/nexflowerp/releases';
-    window.open(targetUrl, '_blank');
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_url', { url: targetUrl });
+      return;
+    } catch {
+      // Fallback para navegador padrão
+      window.open(targetUrl, '_blank');
+    }
   };
 
   if (!modalOpen || !updateInfo) return null;
