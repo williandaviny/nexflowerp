@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useDatabase } from '../../context/DatabaseContext';
-import { Cloud, HardDrive, AlertTriangle, ShieldCheck, Download, Clock } from 'lucide-react';
+import { Cloud, HardDrive, AlertTriangle, Download, Clock } from 'lucide-react';
 import { BackupService } from '../../services/backup/backup';
+import { APP_VERSION } from '../../services/updater/updater';
 
-export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => void }> = ({ activeTab, onNavigate }) => {
+export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const { config, db, backupDaysAlert, refreshConfig } = useDatabase();
   const [time, setTime] = useState(new Date());
   const [backingUp, setBackingUp] = useState(false);
@@ -18,7 +19,7 @@ export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => 
       setBackingUp(true);
       await BackupService.gerarBackup(db);
       await refreshConfig();
-    } catch (err) {
+    } catch {
       alert('Erro ao gerar backup');
     } finally {
       setBackingUp(false);
@@ -40,8 +41,8 @@ export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => 
               <span className="font-bold text-slate-100 tracking-tight text-base">
                 {config?.nome_fantasia || 'NexFlow ERP'}
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">
-                v1.0 Local-First
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/30 font-mono font-medium">
+                v{APP_VERSION} Local-First
               </span>
             </div>
             <p className="text-xs text-slate-400">
@@ -87,7 +88,7 @@ export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => 
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
               : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-800'
           }`}
-          title={isCloud ? 'Supabase Nuvem Ativo' : 'Banco SQLite Local'}
+          title={isCloud ? 'Supabase Nuvem Ativo' : 'Banco SQL Local'}
         >
           {isCloud ? (
             <>
