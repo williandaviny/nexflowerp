@@ -6,7 +6,6 @@ import {
   Users,
   Receipt,
   Wallet,
-  Settings,
   Database
 } from 'lucide-react';
 import { useDatabase } from '../../context/DatabaseContext';
@@ -68,7 +67,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
   return (
     <aside className="w-64 bg-slate-900/90 border-r border-slate-800/80 flex flex-col justify-between p-4 select-none shrink-0">
       <div className="space-y-6">
-        {/* Banner do Módulo PDV */}
         <div className="space-y-1">
           <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Navegação Principal
@@ -128,17 +126,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
             })}
           </nav>
         </div>
-      </div>
-
-      {/* Rodapé da Barra Lateral */}
-      <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-400 space-y-1">
-        <div className="flex items-center justify-between text-slate-300 font-medium">
-          <span>Banco SQL Local</span>
-          <span className="text-emerald-400 font-mono text-[11px]">ATIVO</span>
-        </div>
-        <p className="text-[11px] text-slate-500 leading-tight">
-          Dados gravados com segurança local no seu computador.
-        </p>
       </div>
     </aside>
   );
