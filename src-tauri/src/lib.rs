@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::Command;
 use tauri::{AppHandle, Emitter};
 use futures_util::StreamExt;
@@ -17,6 +18,33 @@ fn open_url(url: String) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     {
         Err("Sistema operacional não suportado".to_string())
+    }
+}
+
+#[tauri::command]
+fn save_backup_file(filename: String, content: String) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let downloads_dir = dirs::download_dir().unwrap_or_else(|| {
+            let user_profile = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".into());
+            PathBuf::from(user_profile).join("Downloads")
+        });
+
+        std::fs::create_dir_all(&downloads_dir).map_err(|e| e.to_string())?;
+        let file_path = downloads_dir.join(&filename);
+        std::fs::write(&file_path, content.as_bytes()).map_err(|e| e.to_string())?;
+
+        // Abre o Windows Explorer destacando o arquivo salvo
+        let path_str = file_path.to_string_lossy().to_string();
+        let _ = Command::new("explorer")
+            .args(["/select,", &path_str])
+            .spawn();
+
+        Ok(path_str)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("OS não suportado".to_string())
     }
 }
 
@@ -97,7 +125,11 @@ async fn download_and_install_update(app: AppHandle, url: String) -> Result<(), 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![open_url, download_and_install_update])
+        .invoke_handler(tauri::generate_handler![
+            open_url,
+            save_backup_file,
+            download_and_install_update
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

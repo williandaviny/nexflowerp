@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDatabase } from '../../context/DatabaseContext';
-import { Cloud, AlertTriangle, Download, Clock } from 'lucide-react';
+import { Cloud, AlertTriangle, Download, Clock, CheckCircle2 } from 'lucide-react';
 import { BackupService } from '../../services/backup/backup';
 import { APP_VERSION } from '../../services/updater/updater';
 
@@ -8,6 +8,7 @@ export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => 
   const { config, db, backupDaysAlert, refreshConfig } = useDatabase();
   const [time, setTime] = useState(new Date());
   const [backingUp, setBackingUp] = useState(false);
+  const [backupSuccess, setBackupSuccess] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -19,6 +20,8 @@ export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => 
       setBackingUp(true);
       await BackupService.gerarBackup(db);
       await refreshConfig();
+      setBackupSuccess(true);
+      setTimeout(() => setBackupSuccess(false), 4000);
     } catch {
       alert('Erro ao gerar backup');
     } finally {
@@ -48,7 +51,7 @@ export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => 
       {/* Direita: Alertas, Backup Rápido, Status Nuvem e Hora */}
       <div className="flex items-center space-x-3">
         {/* Alerta de Backup Pendente */}
-        {backupDaysAlert !== null && (
+        {backupDaysAlert !== null && !backupSuccess && (
           <button
             onClick={() => onNavigate('config')}
             className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition"
@@ -63,6 +66,14 @@ export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => 
           </button>
         )}
 
+        {/* Notificação de Backup Salvo */}
+        {backupSuccess && (
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-medium animate-in fade-in duration-200">
+            <CheckCircle2 size={14} className="text-emerald-400" />
+            <span>Backup salvo em Downloads!</span>
+          </div>
+        )}
+
         {/* Botão de Backup Rápido */}
         <button
           onClick={handleQuickBackup}
@@ -73,7 +84,7 @@ export const Navbar: React.FC<{ activeTab: string; onNavigate: (tab: string) => 
           <span>{backingUp ? 'Gerando...' : 'Backup Rápido (.nexflow)'}</span>
         </button>
 
-        {/* Indicador Nuvem (Aparece apenas quando a sincronização estiver ligada) */}
+        {/* Indicador Nuvem */}
         {isCloud && (
           <div
             onClick={() => onNavigate('config')}

@@ -3,7 +3,7 @@ import { BackupPayload, BackupValidationResult } from '../../types/backup';
 
 export class BackupService {
   /**
-   * Gera o arquivo de backup local completo e dispara o download no computador
+   * Gera o arquivo de backup local completo e grava diretamente na pasta Downloads do Windows
    */
   public static async gerarBackup(db: IDatabaseService): Promise<string> {
     const rawData = await db.exportAllData();
@@ -40,20 +40,30 @@ export class BackupService {
     // Atualiza a data do último backup na configuração
     await db.saveConfig({ ultimo_backup_at: agora });
 
-    // Dispara o download automático do arquivo .nexflow
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    
     const dataFormatada = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    a.href = url;
-    a.download = `nexflow_backup_${dataFormatada}.nexflow`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const filename = `nexflow_backup_${dataFormatada}.nexflow`;
 
-    return agora;
+    try {
+      // Grava no Windows através do comando nativo e abre a pasta Downloads com o arquivo destacado
+      const { invoke } = await import('@tauri-apps/api/core');
+      const savedPath = await invoke<string>('save_backup_file', {
+        filename,
+        content: jsonString
+      });
+      return savedPath;
+    } catch {
+      // Fallback para navegador web
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return `Downloads/${filename}`;
+    }
   }
 
   /**
@@ -83,7 +93,7 @@ export class BackupService {
         total_clientes: data.clientes.length,
         total_vendas: data.vendas.length
       };
-    } catch (err) {
+    } catch {
       return { valido: false, mensagem: 'Não foi possível ler o arquivo. Certifique-se de que é um arquivo .nexflow ou .json válido.' };
     }
   }
