@@ -7,7 +7,7 @@ export interface UpdateInfo {
   publishedAt?: string;
 }
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.2.1';
 const GITHUB_REPO = 'williandaviny/nexflowerp';
 
 export class UpdaterService {
@@ -49,7 +49,7 @@ export class UpdaterService {
         hasUpdate,
         currentVersion: APP_VERSION,
         latestVersion: latestTag || APP_VERSION,
-        body: data.body || 'Correções de estabilidade e novas melhorias.',
+        body: data.body || 'Atualização visual do cabeçalho dinâmico e melhorias gerais.',
         downloadUrl: exeAsset?.browser_download_url || data.html_url,
         publishedAt: data.published_at
       };
