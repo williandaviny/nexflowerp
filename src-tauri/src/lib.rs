@@ -24,9 +24,11 @@ fn open_url(url: String) -> Result<(), String> {
 async fn download_and_install_update(app: AppHandle, url: String) -> Result<(), String> {
     let temp_dir = std::env::temp_dir();
     let installer_path = temp_dir.join("nexflow_update_setup.exe");
+    let script_path = temp_dir.join("nexflow_update_relaunch.bat");
+    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
 
     let client = reqwest::Client::builder()
-        .user_agent("NexFlow-ERP-Updater/1.2")
+        .user_agent("NexFlow-ERP-Updater/1.3")
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -54,23 +56,41 @@ async fn download_and_install_update(app: AppHandle, url: String) -> Result<(), 
 
     let _ = app.emit("update-progress", 100);
 
-    // Executa o instalador em modo silencioso (/S) e fecha a versão antiga
+    // Cria script de transição que aguarda o encerramento do app antigo, roda a instalação silenciosa e reabre o app novo
     #[cfg(target_os = "windows")]
     {
-        let path_str = installer_path.to_string_lossy().to_string();
-        
-        // Dispara o instalador silencioso do NSIS
+        let installer_str = installer_path.to_string_lossy().to_string();
+        let current_exe_str = current_exe.to_string_lossy().to_string();
+
+        let bat_content = format!(
+            "@echo off\r\n\
+            timeout /t 2 /nobreak > nul\r\n\
+            \"{installer}\" /S\r\n\
+            timeout /t 1 /nobreak > nul\r\n\
+            start \"\" \"{exe}\"\r\n\
+            del \"{installer}\"\r\n\
+            del \"%~f0\"\r\n",
+            installer = installer_str,
+            exe = current_exe_str
+        );
+
+        let mut bat_file = File::create(&script_path).map_err(|e| e.to_string())?;
+        bat_file.write_all(bat_content.as_bytes()).map_err(|e| e.to_string())?;
+
+        let script_str = script_path.to_string_lossy().to_string();
         Command::new("cmd")
-            .args(["/C", "start", "", &path_str, "/S"])
+            .args(["/C", "start", "", &script_str])
             .spawn()
             .map_err(|e| e.to_string())?;
 
-        // Aguarda 1 segundo para o processo do instalador assumir e finaliza o app antigo
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        std::thread::sleep(std::time::Duration::from_millis(500));
         std::process::exit(0);
     }
 
-    Ok(())
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
